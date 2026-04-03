@@ -7,10 +7,19 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%2300d2ff%22/><text x=%2250%22 y=%2250%22 font-family=%22'Courier New', monospace%22 font-size=%2245%22 font-weight=%22bold%22 fill=%22%23000%22 text-anchor=%22middle%22 dominant-baseline=%22central%22>A2</text></svg>">
     
     <style>
-        /* === ESTILOS BASE Y ESCRITORIO === */
-        body { margin: 0; overflow: hidden; background-color: #030508; font-family: 'Courier New', Courier, monospace; color: #ffffff; -webkit-tap-highlight-color: transparent; width: 100vw; height: 100vh;}
+        /* === ESTILOS BASE Y BLOQUEO DE GESTOS NATIVOS === */
+        html, body { 
+            margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; 
+            background-color: #030508; font-family: 'Courier New', Courier, monospace; color: #ffffff; 
+            -webkit-tap-highlight-color: transparent; 
+            touch-action: none;          /* Prohíbe al celular hacer scroll o zoom en la web */
+            overscroll-behavior: none;   /* Elimina el "deslizar para recargar" de Android/iOS */
+        }
         
-        canvas { display: block; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; touch-action: none; outline: none; }
+        canvas { 
+            display: block; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; 
+            z-index: 1; touch-action: none; outline: none; 
+        }
         
         #hud-contenedor { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: flex; justify-content: space-between; padding: 30px; box-sizing: border-box; transition: opacity 1s ease; }
         .panel-cristal { background: linear-gradient(135deg, rgba(5, 10, 15, 0.85) 0%, rgba(0, 5, 10, 0.7) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 12px; box-shadow: 0 10px 40px rgba(0, 210, 255, 0.05); pointer-events: auto; }
@@ -48,7 +57,6 @@
         .info-texto li { margin-bottom: 8px; }
         .info-vivo { color: #ffab40; font-weight: bold; font-size: 0.95rem; background: rgba(255, 171, 64, 0.1); padding: 10px; border-left: 3px solid #ffab40;}
 
-        /* Barra Inferior */
         #controles-camara { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; gap: 15px; padding: 15px 25px; border-radius: 50px; pointer-events: auto; transition: opacity 1s ease; }
         .btn-cam { background: transparent; color: #8a9ba8; border: 1px solid transparent; padding: 10px 25px; border-radius: 30px; font-family: 'Courier New', monospace; font-weight: bold; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 2px; font-size: 0.85rem;}
         .btn-cam:hover { color: #00d2ff; border: 1px solid rgba(0, 210, 255, 0.5); }
@@ -60,15 +68,12 @@
         #overlay-cinematico { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); width: 80%; text-align: center; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 1s ease; }
         #texto-tour { font-size: 2.2rem; color: #fff; text-shadow: 0 0 20px #00d2ff, 0 0 10px #00d2ff, 0 5px 10px rgba(0,0,0,0.8); font-weight: bold; letter-spacing: 4px; line-height: 1.4; text-transform: uppercase; }
 
-        /* Botones móviles ocultos en escritorio */
         .toggle-movil { display: none; }
 
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
         @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 
-        /* ==========================================
-           ESTILOS DE MÓVIL (Con Scroll Perfecto)
-           ========================================== */
+        /* === ESTILOS PARA MÓVILES === */
         @media (max-width: 900px) {
             .toggle-movil { 
                 display: block; position: absolute; top: 15px; z-index: 50; 
@@ -170,18 +175,15 @@
             document.getElementById('columna-izq').classList.remove('abierto');
             document.getElementById('columna-der').classList.remove('abierto');
             
-            if (!estabaAbierto) {
-                panelSeleccionado.classList.add('abierto');
-            }
+            if (!estabaAbierto) panelSeleccionado.classList.add('abierto');
         }
 
         // ==========================================
-        // MOTOR GRÁFICO (Cámara calibrada para macro)
+        // MOTOR GRÁFICO (Cámara Libre Sin Límites)
         // ==========================================
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x030508, 0.0015);
-        // CAMBIO: El tercer parámetro de la cámara bajó a 0.001 para que al hacer zoom a la pequeña nave no se desaparezca
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.001, 20000); 
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.001, 50000); 
         camera.position.set(-20, 25, 30); 
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, logarithmicDepthBuffer: true });
@@ -194,13 +196,9 @@
         controls.enableDamping = true; 
         controls.dampingFactor = 0.05; 
         controls.maxDistance = 20000; 
-        controls.minDistance = 0.01; // CAMBIO: Permitimos acercarnos casi infinitamente
+        controls.minDistance = 0.05; 
         controls.enableZoom = true;
         controls.enablePan = true;
-        controls.touches = {
-            ONE: THREE.TOUCH.ROTATE,
-            TWO: THREE.TOUCH.DOLLY_PAN
-        };
         controls.autoRotate = true; 
         controls.autoRotateSpeed = 0.5; 
 
@@ -257,9 +255,7 @@
         const orbitaLunaMesh = new THREE.Mesh(orbitaLunaGeo, new THREE.MeshBasicMaterial({ color: 0x334455, side: THREE.DoubleSide, transparent: true, opacity: 0.3 }));
         orbitaLunaMesh.rotation.x = Math.PI / 2; scene.add(orbitaLunaMesh);
 
-        // ==========================================
-        // LA NAVE PROCEDURAL "AGENA" (ESCALA REALISTA)
-        // ==========================================
+        // NAVE PROCEDURAL "AGENA" REALISTA
         const orionGroup = new THREE.Group(); 
         const orionModelo = new THREE.Group(); 
         orionGroup.add(orionModelo);
@@ -294,7 +290,6 @@
             grupoPanel.rotation.z = p.rot; orionModelo.add(grupoPanel);
         });
 
-        // CAMBIO: Nave 70 veces más pequeña que antes. Ahora sí es realista frente a la Tierra.
         orionModelo.scale.set(0.05, 0.05, 0.05); 
         orionModelo.rotation.y = Math.PI;
 
@@ -331,7 +326,9 @@
         };
 
         function activarPantalla(modoDeseado) {
-            modoActual = modoDeseado; camaraLibre = false; 
+            modoActual = modoDeseado; 
+            camaraLibre = false; // Devuelve el control automático
+            
             document.querySelectorAll('.btn-cam').forEach(b => b.classList.remove('activo')); 
             document.getElementById(`btn-${modoDeseado}`).classList.add('activo');
             pantallaInfo.style.display = "block"; pantallaInfo.style.animation = 'none'; pantallaInfo.offsetHeight; pantallaInfo.style.animation = null; 
@@ -407,9 +404,24 @@
         }
         obtenerTelemetria(); setInterval(obtenerTelemetria, 1000);
 
+        // ==========================================
+        // SISTEMA DE DESBLOQUEO DE CÁMARA (NUEVO)
+        // ==========================================
         let camaraLibre = false; let targetActual = new THREE.Vector3(0, 0, 0);
         
-        controls.addEventListener('start', () => { if(!enTour) camaraLibre = true; }); 
+        function liberarCamara() {
+            if(!enTour) {
+                camaraLibre = true;
+                // Apaga la luz de los botones para indicar que estás en modo libre manual
+                document.querySelectorAll('.btn-cam:not(#btn-stream)').forEach(b => b.classList.remove('activo'));
+            }
+        }
+        
+        // Detecta absolutamente cualquier toque, arrastre, zoom o clic en el espacio espacial
+        renderer.domElement.addEventListener('touchstart', liberarCamara, {passive: false});
+        renderer.domElement.addEventListener('pointerdown', liberarCamara);
+        renderer.domElement.addEventListener('wheel', liberarCamara, {passive: false});
+        controls.addEventListener('start', liberarCamara);
 
         const qActual = new THREE.Quaternion(), qObjetivo = new THREE.Quaternion();
 
@@ -429,15 +441,16 @@
             let delta = targetDeseado.clone().sub(targetActual); targetActual.copy(targetDeseado);
 
             if (!camaraLibre) {
+                // MODO AUTOMÁTICO (Dirigido por el menú)
                 controls.target.lerp(targetActual, 0.05);
                 let camOffset = new THREE.Vector3();
                 if (modoActual === 'sistema') camOffset.set(-60, 45, 90);
                 else if (modoActual === 'tierra') camOffset.set(4, 2, 4);
-                // CAMBIO: Compensamos acercando muchísimo la cámara para que la nave miniatura se vea espectacular
-                else if (modoActual === 'orion') camOffset.set(-0.2, 0.1, -0.2);
+                else if (modoActual === 'orion') camOffset.set(-0.35, 0.15, -0.35); // Vuelo pegado a la nave
                 else if (modoActual === 'luna') camOffset.set(2, 1, 2);
                 camera.position.lerp(targetActual.clone().add(camOffset), 0.02);
             } else { 
+                // MODO LIBRE MANUAL (Tus dedos tienen el control total, pero no pierdes la nave de vista)
                 controls.target.add(delta); 
                 camera.position.add(delta); 
             }
