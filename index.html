@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artemis II - Mission Control</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%2300d2ff%22/><text x=%2250%22 y=%2250%22 font-family=%22'Courier New', monospace%22 font-size=%2245%22 font-weight=%22bold%22 fill=%22%23000%22 text-anchor=%22middle%22 dominant-baseline=%22central%22>A2</text></svg>">
+    
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #030508; font-family: 'Courier New', Courier, monospace; color: #ffffff; }
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        #hud-contenedor { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: flex; justify-content: space-between; padding: 30px; box-sizing: border-box; transition: opacity 1s ease; }
+        .panel-cristal { background: linear-gradient(135deg, rgba(5, 10, 15, 0.85) 0%, rgba(0, 5, 10, 0.7) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 12px; box-shadow: 0 10px 40px rgba(0, 210, 255, 0.05); pointer-events: auto; }
+        
+        #columna-izq { width: 350px; display: flex; flex-direction: column; gap: 20px; }
+        .caja-datos { padding: 25px; }
+        h1 { font-size: 1.5rem; margin: 0 0 20px 0; color: #00d2ff; text-transform: uppercase; letter-spacing: 5px; border-bottom: 2px solid rgba(0, 210, 255, 0.3); padding-bottom: 10px; }
+        .reloj-bloque { margin-bottom: 20px; text-align: center; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);}
+        .reloj-titulo { color: #8a9ba8; font-size: 0.7rem; letter-spacing: 2px; margin-bottom: 5px; font-weight: bold;}
+        .reloj-valor { font-size: 1.5rem; font-weight: bold; letter-spacing: 2px; font-variant-numeric: tabular-nums; text-shadow: 0 0 10px currentColor;}
+        #met-valor { color: #00ff88; } #eta-valor { color: #ffaa00; } 
+        .fila-dato { display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px;}
+        .etiqueta { color: #8a9ba8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;}
+        .valor { font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 5px rgba(255,255,255,0.3); font-variant-numeric: tabular-nums; }
+        .estado-fase { color: #ff3366; font-size: 0.9rem;}
+
+        #columna-der { width: 380px; display: flex; flex-direction: column; gap: 15px; align-items: flex-end; }
+        #nasa-tv-container { width: 100%; height: 213px; position: relative; overflow: hidden; border-radius: 12px; flex-shrink: 0;}
+        #nasa-tv-container iframe { width: 100%; height: 100%; border: none; }
+        .etiqueta-en-vivo { position: absolute; top: 10px; left: 10px; background: #ff003c; color: white; font-size: 0.7rem; padding: 4px 10px; border-radius: 3px; font-weight: bold; animation: blink 1.5s infinite; letter-spacing: 2px; pointer-events: none;}
+
+        #btn-xray { background: transparent; color: #00d2ff; border: 1px solid #00d2ff; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: bold; letter-spacing: 1px; transition: all 0.3s ease; pointer-events: auto; width: 100%; text-align: center; }
+        #btn-xray:hover { background: rgba(0, 210, 255, 0.1); box-shadow: 0 0 10px rgba(0, 210, 255, 0.3); }
+        #btn-xray.activo { background: rgba(0, 210, 255, 0.2); text-shadow: 0 0 5px #00d2ff; }
+
+        #pantalla-info { width: 100%; padding: 25px; display: none; animation: slideIn 0.3s ease forwards; box-sizing: border-box; max-height: calc(100vh - 380px); overflow-y: auto; }
+        #pantalla-info::-webkit-scrollbar { width: 6px; }
+        #pantalla-info::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+        #pantalla-info::-webkit-scrollbar-thumb { background: #00d2ff; border-radius: 4px; }
+
+        #info-titulo { color: #fff; font-size: 1.3rem; margin: 0 0 15px 0; border-bottom: 1px solid #00d2ff; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 2px;}
+        .info-header { color: #00d2ff; font-size: 0.75rem; letter-spacing: 3px; margin-top: 20px; margin-bottom: 8px; font-weight: bold;}
+        .info-texto { font-size: 0.85rem; color: #d0d0d0; line-height: 1.5; margin: 0;}
+        .info-texto ul { padding-left: 20px; margin-top: 5px;}
+        .info-texto li { margin-bottom: 8px; }
+        .info-vivo { color: #ffab40; font-weight: bold; font-size: 0.95rem; background: rgba(255, 171, 64, 0.1); padding: 10px; border-left: 3px solid #ffab40;}
+
+        #controles-camara { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; gap: 15px; padding: 15px 25px; border-radius: 50px; pointer-events: auto; transition: opacity 1s ease; }
+        .btn-cam { background: transparent; color: #8a9ba8; border: 1px solid transparent; padding: 10px 25px; border-radius: 30px; font-family: 'Courier New', monospace; font-weight: bold; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 2px; font-size: 0.85rem;}
+        .btn-cam:hover { color: #00d2ff; border: 1px solid rgba(0, 210, 255, 0.5); }
+        .btn-cam.activo { background: rgba(0, 210, 255, 0.1); color: #00d2ff; border: 1px solid #00d2ff; box-shadow: 0 0 20px rgba(0, 210, 255, 0.4); }
+        
+        #btn-stream { background: rgba(255, 0, 60, 0.1); color: #ff3366; border: 1px solid #ff3366; }
+        #btn-stream:hover { background: rgba(255, 0, 60, 0.3); box-shadow: 0 0 20px rgba(255, 0, 60, 0.5); color: #fff;}
+
+        #overlay-cinematico { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); width: 80%; text-align: center; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 1s ease; }
+        #texto-tour { font-size: 2.2rem; color: #fff; text-shadow: 0 0 20px #00d2ff, 0 0 10px #00d2ff, 0 5px 10px rgba(0,0,0,0.8); font-weight: bold; letter-spacing: 4px; line-height: 1.4; text-transform: uppercase; }
+
+        /* Estilo para la foto de la tripulación */
+        .foto-tripulacion { width: 100%; border-radius: 8px; border: 1px solid rgba(0, 210, 255, 0.3); box-shadow: 0 4px 15px rgba(0, 210, 255, 0.15); margin-bottom: 15px; display: block; }
+
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+    <div id="overlay-cinematico">
+        <div id="texto-tour">Iniciando transmisión...</div>
+    </div>
+
+    <div id="hud-contenedor">
+        <div id="columna-izq">
+            <div class="panel-cristal caja-datos">
+                <h1>Artemis II</h1>
+                <div class="reloj-bloque">
+                    <div class="reloj-titulo">MET (TIEMPO DE VUELO)</div>
+                    <div class="reloj-valor" id="met-valor">T+ 00:00:00:00</div>
+                </div>
+                <div class="reloj-bloque">
+                    <div class="reloj-titulo">INTERSECCIÓN LUNAR</div>
+                    <div class="reloj-valor" id="eta-valor">T- 00:00:00:00</div>
+                </div>
+                <div class="fila-dato"><span class="etiqueta">Estado</span><span class="valor estado-fase" id="fase-valor">Conectando...</span></div>
+                <div class="fila-dato"><span class="etiqueta">Velocidad</span><span class="valor" id="vel-valor">0 km/h</span></div>
+                <div class="fila-dato"><span class="etiqueta">Dist. Tierra</span><span class="valor" id="dist-tierra-valor">0 km</span></div>
+            </div>
+        </div>
+
+        <div id="columna-der">
+            <div class="panel-cristal" id="nasa-tv-container">
+                <span class="etiqueta-en-vivo">ORION CAM</span>
+                <iframe src="https://www.youtube.com/embed/6RwfNBtepa4?autoplay=1&mute=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+            </div>
+            
+            <button id="btn-xray" class="panel-cristal" onclick="toggleRayosX()">[ ACTIVAR VISIÓN ESTRUCTURAL ]</button>
+
+            <div class="panel-cristal" id="pantalla-info">
+                <h2 id="info-titulo">SISTEMA SOLAR</h2>
+                <div class="info-header">DIAGNÓSTICO EN VIVO</div>
+                <p class="info-texto info-vivo" id="info-vivo">Buscando telemetría...</p>
+                <div class="info-header">RESUMEN DE MISIÓN (NASA CIENCIA)</div>
+                <div class="info-texto" id="info-historial">Selecciona un objetivo en la barra inferior.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="controles-camara" class="panel-cristal">
+        <button class="btn-cam activo" id="btn-sistema" onclick="activarPantalla('sistema')">SISTEMA</button>
+        <button class="btn-cam" id="btn-tierra" onclick="activarPantalla('tierra')">TIERRA</button>
+        <button class="btn-cam" id="btn-orion" onclick="activarPantalla('orion')">ORION</button>
+        <button class="btn-cam" id="btn-luna" onclick="activarPantalla('luna')">LUNA</button>
+        <button class="btn-cam" id="btn-stream" onclick="iniciarTour()">▶ MODO STREAM</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+    <script>
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x030508, 0.0015);
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 20000); 
+        camera.position.set(-20, 25, 30); 
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, logarithmicDepthBuffer: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05; controls.maxDistance = 1500;
+        controls.autoRotate = true; controls.autoRotateSpeed = 0.5; 
+
+        const cargadorTexturas = new THREE.TextureLoader();
+        const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
+
+        // ILUMINACIÓN
+        const posSol = new THREE.Vector3(-800, 100, 400);
+        scene.add(new THREE.AmbientLight(0x445566, 0.6)); 
+        const luzSolar = new THREE.DirectionalLight(0xffeedd, 4.0); luzSolar.position.copy(posSol); scene.add(luzSolar);
+        
+        const materialSol = new THREE.MeshBasicMaterial({ color: 0xffffee, fog: false });
+        const solEsfera = new THREE.Mesh(new THREE.SphereGeometry(70, 32, 32), materialSol);
+        solEsfera.position.copy(posSol); scene.add(solEsfera);
+
+        const materialHalo = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, fog: false, side: THREE.BackSide });
+        const haloSol = new THREE.Mesh(new THREE.SphereGeometry(120, 32, 32), materialHalo);
+        haloSol.position.copy(posSol); scene.add(haloSol);
+
+        const geoEstrellas = new THREE.BufferGeometry();
+        const posEstrellas = new Float32Array(15000 * 3);
+        for(let i = 0; i < 15000 * 3; i++) posEstrellas[i] = (Math.random() - 0.5) * 8000; 
+        geoEstrellas.setAttribute('position', new THREE.BufferAttribute(posEstrellas, 3));
+        scene.add(new THREE.Points(geoEstrellas, new THREE.PointsMaterial({ color: 0xffffff, size: 0.8, transparent: true, opacity: 0.6 })));
+
+        // TIERRA ULTRA HD
+        const tierraGrupo = new THREE.Group();
+        tierraGrupo.rotation.z = 23.5 * Math.PI / 180; scene.add(tierraGrupo);
+
+        const matTierra = new THREE.MeshPhongMaterial({ color: 0xffffff, specular: 0x333333, shininess: 25 });
+        const tierra = new THREE.Mesh(new THREE.SphereGeometry(2, 64, 64), matTierra);
+        tierra.castShadow = true; tierra.receiveShadow = true; tierraGrupo.add(tierra);
+
+        cargadorTexturas.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg', t => { t.anisotropy = maxAnisotropy; matTierra.map = t; matTierra.needsUpdate = true; });
+        cargadorTexturas.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg', t => { matTierra.normalMap = t; matTierra.needsUpdate = true; });
+        cargadorTexturas.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg', t => { matTierra.specularMap = t; matTierra.needsUpdate = true; });
+
+        const matNubes = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+        const nubes = new THREE.Mesh(new THREE.SphereGeometry(2.02, 64, 64), matNubes);
+        tierraGrupo.add(nubes);
+        cargadorTexturas.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png', t => { matNubes.map = t; matNubes.needsUpdate = true; });
+
+        const atmosfera = new THREE.Mesh(new THREE.SphereGeometry(2.1, 64, 64), new THREE.MeshBasicMaterial({ color: 0x0066ff, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, side: THREE.BackSide }));
+        tierraGrupo.add(atmosfera);
+
+        // LUNA CORREGIDA
+        const matLuna = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 0 });
+        const luna = new THREE.Mesh(new THREE.SphereGeometry(0.54, 64, 64), matLuna);
+        scene.add(luna);
+        
+        cargadorTexturas.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/moon_1024.jpg', t => { 
+            t.anisotropy = maxAnisotropy; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+            matLuna.map = t; matLuna.bumpMap = t; matLuna.bumpScale = 0.002; matLuna.needsUpdate = true; 
+        });
+
+        const orbitaLunaGeo = new THREE.RingGeometry(384400/3000 - 0.1, 384400/3000 + 0.1, 128);
+        const orbitaLunaMesh = new THREE.Mesh(orbitaLunaGeo, new THREE.MeshBasicMaterial({ color: 0x334455, side: THREE.DoubleSide, transparent: true, opacity: 0.3 }));
+        orbitaLunaMesh.rotation.x = Math.PI / 2; scene.add(orbitaLunaMesh);
+
+        // NAVE PROCEDURAL (ESTILO AGENA/HD)
+        const orionGroup = new THREE.Group(); 
+        const orionModelo = new THREE.Group(); 
+        orionGroup.add(orionModelo);
+        scene.add(orionGroup);
+
+        const loader = new THREE.GLTFLoader();
+        loader.load('orion.glb', 
+            function ( gltf ) {
+                const naveReal = gltf.scene; naveReal.scale.set(0.05, 0.05, 0.05); orionModelo.add( naveReal );
+            }, undefined, 
+            function ( error ) {
+                const matCasco = new THREE.MeshStandardMaterial({ color: 0xd0d0d0, roughness: 0.3, metalness: 0.8 });
+                const matOro = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.6, metalness: 1.0 }); 
+                const matOscuro = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8, metalness: 0.2 });
+                const matPanel = new THREE.MeshStandardMaterial({ color: 0x001144, roughness: 0.1, metalness: 0.9 });
+
+                const cuerpo = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.6, 64), matCasco);
+                cuerpo.rotation.x = Math.PI / 2; orionModelo.add(cuerpo);
+
+                const moduloOro = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.125, 0.2, 64), matOro);
+                moduloOro.rotation.x = Math.PI / 2; moduloOro.position.z = -0.2; orionModelo.add(moduloOro);
+
+                const nariz = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.2, 64), matOscuro);
+                nariz.rotation.x = Math.PI / 2; nariz.position.z = 0.4; orionModelo.add(nariz);
+
+                const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, 0.15, 32), matOscuro);
+                motor.rotation.x = Math.PI / 2; motor.position.z = -0.375; orionModelo.add(motor);
+
+                const brilloMotor = new THREE.Mesh(new THREE.SphereGeometry(0.07, 32, 32), new THREE.MeshBasicMaterial({ color: 0x00aaff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending }));
+                brilloMotor.position.z = -0.45; orionModelo.add(brilloMotor);
+
+                [{rot: 0}, {rot: Math.PI}].forEach(p => {
+                    const grupoPanel = new THREE.Group();
+                    const brazo = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.4, 16), matCasco);
+                    brazo.rotation.z = Math.PI / 2; brazo.position.x = 0.2; grupoPanel.add(brazo);
+                    const panel = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.02, 0.3), matPanel);
+                    panel.position.x = 0.7; grupoPanel.add(panel);
+                    grupoPanel.rotation.z = p.rot; orionModelo.add(grupoPanel);
+                });
+
+                orionModelo.scale.set(3.5, 3.5, 3.5); orionModelo.rotation.y = Math.PI;
+            }
+        );
+
+        // RAYOS X
+        let rayosXActivo = false; const materialesOriginales = new Map(); 
+        function toggleRayosX() {
+            rayosXActivo = !rayosXActivo; const btn = document.getElementById('btn-xray');
+            if (rayosXActivo) { btn.innerText = "[ DESACTIVAR VISIÓN ESTRUCTURAL ]"; btn.classList.add('activo'); } 
+            else { btn.innerText = "[ ACTIVAR VISIÓN ESTRUCTURAL ]"; btn.classList.remove('activo'); }
+            orionModelo.traverse((hijo) => {
+                if (hijo.isMesh) {
+                    if (rayosXActivo) {
+                        if (!materialesOriginales.has(hijo.uuid)) materialesOriginales.set(hijo.uuid, hijo.material);
+                        hijo.material = new THREE.MeshBasicMaterial({ color: 0x00d2ff, wireframe: true, transparent: true, opacity: 0.4 });
+                    } else { if (materialesOriginales.has(hijo.uuid)) hijo.material = materialesOriginales.get(hijo.uuid); }
+                }
+            });
+        }
+
+        // BASE DE DATOS Y UI - CON LA FOTO INYECTADA EN ORION
+        const pantallaInfo = document.getElementById('pantalla-info');
+        const infoTitulo = document.getElementById('info-titulo');
+        const infoHistorial = document.getElementById('info-historial');
+        const infoVivo = document.getElementById('info-vivo');
+        let modoActual = 'sistema';
+        let ultimosDatosAPI = null;
+
+        const baseDeDatos = {
+            "sistema": { tit: "PROGRAMA ARTEMIS", hist: `Mediante el programa Artemis, la NASA explorará más regiones de la Luna que nunca.<br><ul><li><b>Objetivo Final:</b> Misiones a Marte.</li></ul>` },
+            "tierra": { tit: "PLANETA TIERRA", hist: `Punto de origen y destino final de Artemis II.<br><ul><li><b>Lanzamiento:</b> Abril 2026. Centro Espacial Kennedy.</li></ul>` },
+            "luna": { tit: "LA LUNA", hist: `Artemis II ejecutará un sobrevuelo complejo de retorno libre.` },
+            // FOTO OFICIAL AGREGADA AQUÍ:
+            "orion": { tit: "VEHÍCULO ESPACIAL", hist: `
+                <img src="astronutas.jpg" class="foto-tripulacion" alt="Tripulación Artemis II">
+                Primera prueba tripulada de la NASA en espacio profundo.<br><b>Tripulación Oficial:</b><br>
+                <ul>
+                    <li>Reid Wiseman (Comandante)</li>
+                    <li>Victor Glover (Piloto)</li>
+                    <li>Christina Koch (Especialista)</li>
+                    <li>Jeremy Hansen (Especialista)</li>
+                </ul>` 
+            }
+        };
+
+        function activarPantalla(modoDeseado) {
+            modoActual = modoDeseado; camaraLibre = false; 
+            document.querySelectorAll('.btn-cam').forEach(b => b.classList.remove('activo')); 
+            document.getElementById(`btn-${modoDeseado}`).classList.add('activo');
+            pantallaInfo.style.display = "block"; pantallaInfo.style.animation = 'none'; pantallaInfo.offsetHeight; pantallaInfo.style.animation = null; 
+            infoTitulo.innerText = baseDeDatos[modoDeseado].tit; infoHistorial.innerHTML = baseDeDatos[modoDeseado].hist; 
+            pantallaInfo.scrollTop = 0; actualizarInfoVivo(); 
+        }
+
+        function actualizarInfoVivo() {
+            if (!ultimosDatosAPI) return;
+            if (modoActual === 'sistema') infoVivo.innerHTML = `Vuelo en curso. ${ultimosDatosAPI.fase_mision}`;
+            if (modoActual === 'tierra') infoVivo.innerHTML = `Comunicaciones DSN: Enlazadas<br>Distancia: ${Math.round(ultimosDatosAPI.distancia_tierra_km).toLocaleString('en-US')} km`;
+            if (modoActual === 'luna') infoVivo.innerHTML = `Intersección Lunar: ${ultimosDatosAPI.tiempos.eta_luna}`;
+            if (modoActual === 'orion') infoVivo.innerHTML = `<b>Navegación:</b><br>Pitch: ${ultimosDatosAPI.rotacion_orion.pitch.toFixed(3)} rad<br>Yaw: ${ultimosDatosAPI.rotacion_orion.yaw.toFixed(3)} rad<br>Vel: ${Math.round(ultimosDatosAPI.velocidad_kmh).toLocaleString('en-US')} km/h`;
+        }
+
+        // MODO STREAM (TOUR CINEMÁTICO)
+        let enTour = false;
+        function iniciarTour() {
+            if(enTour) return; 
+            enTour = true; camaraLibre = false;
+            
+            document.getElementById('hud-contenedor').style.opacity = 0;
+            document.getElementById('controles-camara').style.opacity = 0;
+            
+            const overlay = document.getElementById('overlay-cinematico');
+            const texto = document.getElementById('texto-tour');
+
+            const escenas = [
+                { obj: 'tierra', txt: "MISIÓN ARTEMIS II\nEL REGRESO DE LA HUMANIDAD AL ESPACIO PROFUNDO", duracion: 6000 },
+                { obj: 'orion', txt: "VEHÍCULO ESPACIAL\nLLEVANDO A 4 ASTRONAUTAS HACIA LO DESCONOCIDO", duracion: 6000 },
+                { obj: 'luna', txt: "DESTINO: LA LUNA\nUNA TRAYECTORIA PERFECTA DE RETORNO LIBRE", duracion: 6000 },
+                { obj: 'sistema', txt: "DURACIÓN: 10 DÍAS\nEL PRÓXIMO GRAN PASO ANTES DE MARTE", duracion: 7000 }
+            ];
+
+            let tiempoAcumulado = 0;
+
+            escenas.forEach((escena, index) => {
+                setTimeout(() => {
+                    activarPantalla(escena.obj);
+                    overlay.style.opacity = 0; 
+                    setTimeout(() => { texto.innerText = escena.txt; overlay.style.opacity = 1; }, 1000);
+                }, tiempoAcumulado);
+                tiempoAcumulado += escena.duracion;
+            });
+
+            setTimeout(() => {
+                overlay.style.opacity = 0;
+                document.getElementById('hud-contenedor').style.opacity = 1;
+                document.getElementById('controles-camara').style.opacity = 1;
+                enTour = false; activarPantalla('orion'); 
+            }, tiempoAcumulado + 1000);
+        }
+
+        // TELEMETRÍA (NODE.JS)
+        const metEl = document.getElementById('met-valor'), etaEl = document.getElementById('eta-valor'), velEl = document.getElementById('vel-valor'), distEl = document.getElementById('dist-tierra-valor'), faseEl = document.getElementById('fase-valor');
+        const ESCALA_3D = 3000; 
+        let orionPosObjetivo = new THREE.Vector3(5, 0, -5), lunaPosObjetivo = new THREE.Vector3(-40, 0, -10), orionRotObjetivo = new THREE.Euler(0, 0, 0, 'YXZ');
+
+        async function obtenerTelemetria() {
+            try {
+                const res = await fetch('/api/artemis'); ultimosDatosAPI = await res.json(); 
+                metEl.innerText = ultimosDatosAPI.tiempos.met; etaEl.innerText = ultimosDatosAPI.tiempos.eta_luna;
+                faseEl.innerText = ultimosDatosAPI.fase_mision; velEl.innerText = `${Math.round(ultimosDatosAPI.velocidad_kmh).toLocaleString('en-US')} km/h`;
+                distEl.innerText = `${Math.round(ultimosDatosAPI.distancia_tierra_km).toLocaleString('en-US')} km`;
+                orionPosObjetivo.set(ultimosDatosAPI.posicion_orion.x / ESCALA_3D, ultimosDatosAPI.posicion_orion.y / ESCALA_3D, ultimosDatosAPI.posicion_orion.z / ESCALA_3D);
+                lunaPosObjetivo.set(ultimosDatosAPI.posicion_luna.x / ESCALA_3D, ultimosDatosAPI.posicion_luna.y / ESCALA_3D, ultimosDatosAPI.posicion_luna.z / ESCALA_3D);
+                orionRotObjetivo.set(ultimosDatosAPI.rotacion_orion.pitch, ultimosDatosAPI.rotacion_orion.yaw, ultimosDatosAPI.rotacion_orion.roll);
+                luna.lookAt(tierraGrupo.position); actualizarInfoVivo(); 
+            } catch (error) { faseEl.innerText = "PÉRDIDA DE SEÑAL"; faseEl.style.color = "#ff3366"; }
+        }
+        obtenerTelemetria(); setInterval(obtenerTelemetria, 1000);
+
+        // ANIMACIÓN E HÍBRIDO DE CÁMARA
+        let camaraLibre = false; let targetActual = new THREE.Vector3(0, 0, 0);
+        controls.addEventListener('start', () => { if(!enTour) camaraLibre = true; }); renderer.domElement.addEventListener('wheel', () => { if(!enTour) camaraLibre = true; });
+        const qActual = new THREE.Quaternion(), qObjetivo = new THREE.Quaternion();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            tierra.rotation.y += 0.0005; nubes.rotation.y += 0.0007;
+            
+            orionGroup.position.lerp(orionPosObjetivo, 0.05); luna.position.lerp(lunaPosObjetivo, 0.05);
+            qObjetivo.setFromEuler(orionRotObjetivo); qActual.copy(orionGroup.quaternion); orionGroup.quaternion.copy(qActual.slerp(qObjetivo, 0.05));
+
+            let targetDeseado = new THREE.Vector3();
+            if (modoActual === 'sistema') targetDeseado.set(0, 0, 0);
+            else if (modoActual === 'tierra') targetDeseado.copy(tierraGrupo.position);
+            else if (modoActual === 'orion') targetDeseado.copy(orionGroup.position);
+            else if (modoActual === 'luna') targetDeseado.copy(luna.position);
+
+            let delta = targetDeseado.clone().sub(targetActual); targetActual.copy(targetDeseado);
+
+            if (!camaraLibre) {
+                controls.target.lerp(targetActual, 0.05);
+                let camOffset = new THREE.Vector3();
+                if (modoActual === 'sistema') camOffset.set(-60, 45, 90);
+                else if (modoActual === 'tierra') camOffset.set(4, 2, 4);
+                else if (modoActual === 'orion') camOffset.set(-3.5, 2.0, -3.5);
+                else if (modoActual === 'luna') camOffset.set(2, 1, 2);
+                camera.position.lerp(targetActual.clone().add(camOffset), 0.02);
+            } else { controls.target.copy(targetActual); camera.position.add(delta); }
+
+            controls.update(); renderer.render(scene, camera);
+        }
+        animate(); setTimeout(() => activarPantalla('orion'), 500); 
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+    </script>
+</body>
+</html>
