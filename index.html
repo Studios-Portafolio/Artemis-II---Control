@@ -2,21 +2,19 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Artemis II - Mission Control</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%2300d2ff%22/><text x=%2250%22 y=%2250%22 font-family=%22'Courier New', monospace%22 font-size=%2245%22 font-weight=%22bold%22 fill=%22%23000%22 text-anchor=%22middle%22 dominant-baseline=%22central%22>A2</text></svg>">
     
     <style>
-        /* ==========================================
-           1. ESTILOS DE ESCRITORIO (ORIGINALES)
-           ========================================== */
-        body { margin: 0; overflow: hidden; background-color: #030508; font-family: 'Courier New', Courier, monospace; color: #ffffff; }
+        /* === ESTILOS BASE Y ESCRITORIO === */
+        body { margin: 0; overflow: hidden; background-color: #030508; font-family: 'Courier New', Courier, monospace; color: #ffffff; -webkit-tap-highlight-color: transparent;}
         canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
         
         #hud-contenedor { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: flex; justify-content: space-between; padding: 30px; box-sizing: border-box; transition: opacity 1s ease; }
         .panel-cristal { background: linear-gradient(135deg, rgba(5, 10, 15, 0.85) 0%, rgba(0, 5, 10, 0.7) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 12px; box-shadow: 0 10px 40px rgba(0, 210, 255, 0.05); pointer-events: auto; }
         
-        #columna-izq { width: 350px; display: flex; flex-direction: column; gap: 20px; }
+        #columna-izq { width: 350px; display: flex; flex-direction: column; gap: 20px; transition: transform 0.3s ease, opacity 0.3s ease; }
         .caja-datos { padding: 25px; }
         h1 { font-size: 1.5rem; margin: 0 0 20px 0; color: #00d2ff; text-transform: uppercase; letter-spacing: 5px; border-bottom: 2px solid rgba(0, 210, 255, 0.3); padding-bottom: 10px; }
         .reloj-bloque { margin-bottom: 20px; text-align: center; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);}
@@ -28,7 +26,7 @@
         .valor { font-weight: bold; font-size: 1.1rem; text-shadow: 0 0 5px rgba(255,255,255,0.3); font-variant-numeric: tabular-nums; }
         .estado-fase { color: #ff3366; font-size: 0.9rem;}
 
-        #columna-der { width: 380px; display: flex; flex-direction: column; gap: 15px; align-items: flex-end; }
+        #columna-der { width: 380px; display: flex; flex-direction: column; gap: 15px; align-items: flex-end; transition: transform 0.3s ease, opacity 0.3s ease; }
         #nasa-tv-container { width: 100%; height: 213px; position: relative; overflow: hidden; border-radius: 12px; flex-shrink: 0;}
         #nasa-tv-container iframe { width: 100%; height: 100%; border: none; }
         .etiqueta-en-vivo { position: absolute; top: 10px; left: 10px; background: #ff003c; color: white; font-size: 0.7rem; padding: 4px 10px; border-radius: 3px; font-weight: bold; animation: blink 1.5s infinite; letter-spacing: 2px; pointer-events: none;}
@@ -49,6 +47,7 @@
         .info-texto li { margin-bottom: 8px; }
         .info-vivo { color: #ffab40; font-weight: bold; font-size: 0.95rem; background: rgba(255, 171, 64, 0.1); padding: 10px; border-left: 3px solid #ffab40;}
 
+        /* Barra Inferior */
         #controles-camara { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; gap: 15px; padding: 15px 25px; border-radius: 50px; pointer-events: auto; transition: opacity 1s ease; }
         .btn-cam { background: transparent; color: #8a9ba8; border: 1px solid transparent; padding: 10px 25px; border-radius: 30px; font-family: 'Courier New', monospace; font-weight: bold; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 2px; font-size: 0.85rem;}
         .btn-cam:hover { color: #00d2ff; border: 1px solid rgba(0, 210, 255, 0.5); }
@@ -60,50 +59,70 @@
         #overlay-cinematico { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); width: 80%; text-align: center; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 1s ease; }
         #texto-tour { font-size: 2.2rem; color: #fff; text-shadow: 0 0 20px #00d2ff, 0 0 10px #00d2ff, 0 5px 10px rgba(0,0,0,0.8); font-weight: bold; letter-spacing: 4px; line-height: 1.4; text-transform: uppercase; }
 
+        /* Botones móviles ocultos en escritorio */
+        .toggle-movil { display: none; }
+
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
         @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 
         /* ==========================================
-           2. ADAPTACIÓN PARA MÓVILES (Media Query)
+           2. ESTILOS 10/10 PARA MÓVILES (Paneles Deslizantes)
            ========================================== */
         @media (max-width: 900px) {
-            #hud-contenedor { 
-                flex-direction: column; 
-                justify-content: flex-start;
-                padding: 10px; 
-                padding-bottom: 120px; 
-                overflow-y: auto; 
-                pointer-events: auto; 
+            /* Botones tácticos en las esquinas */
+            .toggle-movil { 
+                display: block; position: absolute; top: 15px; z-index: 50; 
+                padding: 8px 12px; color: #00d2ff; background: rgba(5,10,15,0.8); 
+                border: 1px solid rgba(0,210,255,0.5); border-radius: 8px; 
+                font-family: monospace; font-size: 0.75rem; font-weight: bold; 
+                cursor: pointer; backdrop-filter: blur(10px);
             }
-            #columna-izq, #columna-der { 
-                width: 100%; 
-                align-items: center;
+            #btn-toggle-izq { left: 15px; }
+            #btn-toggle-der { right: 15px; }
+
+            /* Destruimos el contenedor HUD para que no bloquee la pantalla */
+            #hud-contenedor { padding: 0; pointer-events: none; display: block; }
+            
+            /* Paneles Ocultos y Flotantes */
+            #columna-izq, #columna-der {
+                position: absolute;
+                top: 60px;
+                width: 90%;
+                left: 5%;
+                background: rgba(5, 10, 15, 0.95);
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+                opacity: 0; /* Invisibles por defecto */
+                transform: translateY(-20px); /* Arriba */
+                pointer-events: none;
+                z-index: 40;
+                max-height: calc(100vh - 180px);
+                overflow-y: auto;
             }
-            #columna-der { 
-                margin-top: 15px; 
+            
+            /* Clase mágica que los desliza a la pantalla */
+            #columna-izq.abierto, #columna-der.abierto {
+                opacity: 1;
+                transform: translateY(0);
+                pointer-events: auto;
             }
-            .caja-datos, #pantalla-info {
-                width: 100%;
-                box-sizing: border-box;
-            }
-            #controles-camara { 
-                width: 95%; 
-                flex-wrap: wrap; 
-                justify-content: center; 
-                bottom: 10px; 
-                padding: 10px; 
-            }
-            .btn-cam { 
-                padding: 8px 12px; 
-                font-size: 0.7rem; 
-            }
-            #texto-tour {
-                font-size: 1.5rem;
-            }
+
+            /* Ajustes de contenido interno para que entren bien */
+            .caja-datos { margin-bottom: 0; }
+            #nasa-tv-container { height: 180px; margin-bottom: 10px; border-radius: 12px 12px 0 0; }
+            #pantalla-info { display: block !important; padding: 15px; border-radius: 0 0 12px 12px; }
+
+            /* Barra Inferior Adaptada */
+            #controles-camara { width: 95%; flex-wrap: wrap; justify-content: center; bottom: 15px; padding: 10px; gap: 8px; }
+            .btn-cam { padding: 8px 12px; font-size: 0.7rem; }
+            #texto-tour { font-size: 1.5rem; }
         }
     </style>
 </head>
 <body>
+
+    <button id="btn-toggle-izq" class="toggle-movil" onclick="toggleMenu('columna-izq')">📊 DATOS</button>
+    <button id="btn-toggle-der" class="toggle-movil" onclick="toggleMenu('columna-der')">ℹ️ INFO / CAM</button>
 
     <div id="overlay-cinematico">
         <div id="texto-tour">Iniciando transmisión...</div>
@@ -155,9 +174,28 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <script>
+        // ==========================================
+        // LÓGICA DE MENÚS FLOTANTES PARA MÓVIL
+        // ==========================================
+        function toggleMenu(panelId) {
+            const panelSeleccionado = document.getElementById(panelId);
+            const estabaAbierto = panelSeleccionado.classList.contains('abierto');
+            
+            // Forzamos cerrar ambos siempre para que no se superpongan
+            document.getElementById('columna-izq').classList.remove('abierto');
+            document.getElementById('columna-der').classList.remove('abierto');
+            
+            // Si no estaba abierto, lo abrimos
+            if (!estabaAbierto) {
+                panelSeleccionado.classList.add('abierto');
+            }
+        }
+
+        // ==========================================
+        // MOTOR GRÁFICO Y ESCENA
+        // ==========================================
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x030508, 0.0015);
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 20000); 
@@ -230,30 +268,45 @@
         orbitaLunaMesh.rotation.x = Math.PI / 2; scene.add(orbitaLunaMesh);
 
         // ==========================================
-        // CARGA ORIGINAL DE TU NAVE ORION (.GLB)
+        // LA NAVE PROCEDURAL "AGENA" (NUNCA FALLA)
         // ==========================================
         const orionGroup = new THREE.Group(); 
         const orionModelo = new THREE.Group(); 
         orionGroup.add(orionModelo);
         scene.add(orionGroup);
 
-        const loader = new THREE.GLTFLoader();
-        // Carga tu archivo 3D real y usa una cápsula pequeña y decente como respaldo
-        loader.load('orion.glb', 
-            function ( gltf ) {
-                const naveReal = gltf.scene; naveReal.scale.set(0.02, 0.02, 0.02); orionModelo.add( naveReal );
-            }, undefined, 
-            function ( error ) {
-                console.warn("Buscando orion.glb... Aplicando diseño de respaldo original.");
-                const capsula = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.15, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.5 }));
-                capsula.rotation.x = Math.PI / 2; capsula.position.z = 0.15; orionModelo.add(capsula);
-                const moduloServicio = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.25, 32), new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.8 }));
-                moduloServicio.rotation.x = Math.PI / 2; orionModelo.add(moduloServicio);
-                const matPanel = new THREE.MeshStandardMaterial({ color: 0x001144, roughness: 0.1, metalness: 0.9 });
-                [{rot: Math.PI/4}, {rot: -Math.PI/4}, {rot: 3*Math.PI/4}, {rot: -3*Math.PI/4}].forEach(p => { const panel = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.01, 0.1), matPanel); panel.rotation.z = p.rot; panel.geometry.translate(0.2, 0, 0); moduloServicio.add(panel); });
-                orionModelo.rotation.y = Math.PI;
-            }
-        );
+        const matCasco = new THREE.MeshStandardMaterial({ color: 0xd0d0d0, roughness: 0.3, metalness: 0.8 });
+        const matOro = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.6, metalness: 1.0 }); 
+        const matOscuro = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8, metalness: 0.2 });
+        const matPanel = new THREE.MeshStandardMaterial({ color: 0x001144, roughness: 0.1, metalness: 0.9 });
+
+        const cuerpo = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.6, 64), matCasco);
+        cuerpo.rotation.x = Math.PI / 2; orionModelo.add(cuerpo);
+
+        const moduloOro = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.125, 0.2, 64), matOro);
+        moduloOro.rotation.x = Math.PI / 2; moduloOro.position.z = -0.2; orionModelo.add(moduloOro);
+
+        const nariz = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.2, 64), matOscuro);
+        nariz.rotation.x = Math.PI / 2; nariz.position.z = 0.4; orionModelo.add(nariz);
+
+        const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, 0.15, 32), matOscuro);
+        motor.rotation.x = Math.PI / 2; motor.position.z = -0.375; orionModelo.add(motor);
+
+        const brilloMotor = new THREE.Mesh(new THREE.SphereGeometry(0.07, 32, 32), new THREE.MeshBasicMaterial({ color: 0x00aaff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending }));
+        brilloMotor.position.z = -0.45; orionModelo.add(brilloMotor);
+
+        [{rot: 0}, {rot: Math.PI}].forEach(p => {
+            const grupoPanel = new THREE.Group();
+            const brazo = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.4, 16), matCasco);
+            brazo.rotation.z = Math.PI / 2; brazo.position.x = 0.2; grupoPanel.add(brazo);
+            const panel = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.02, 0.3), matPanel);
+            panel.position.x = 0.7; grupoPanel.add(panel);
+            grupoPanel.rotation.z = p.rot; orionModelo.add(grupoPanel);
+        });
+
+        // Escala épica 3.5x
+        orionModelo.scale.set(3.5, 3.5, 3.5); 
+        orionModelo.rotation.y = Math.PI;
 
         // RAYOS X
         let rayosXActivo = false; const materialesOriginales = new Map(); 
@@ -283,7 +336,7 @@
             "sistema": { tit: "PROGRAMA ARTEMIS", hist: `Mediante el programa Artemis, la NASA explorará más regiones de la Luna que nunca.<br><ul><li><b>Objetivo Final:</b> Misiones a Marte.</li></ul>` },
             "tierra": { tit: "PLANETA TIERRA", hist: `Punto de origen y destino final de Artemis II.<br><ul><li><b>Lanzamiento:</b> Abril 2026. Centro Espacial Kennedy.</li></ul>` },
             "luna": { tit: "LA LUNA", hist: `Artemis II ejecutará un sobrevuelo complejo de retorno libre.` },
-            "orion": { tit: "CÁPSULA ORION", hist: `
+            "orion": { tit: "VEHÍCULO ESPACIAL", hist: `
                 <img src="astronutas.jpg" style="width:100%; border-radius:8px; margin-bottom:15px; border: 1px solid rgba(0,210,255,0.3);" alt="Tripulación">
                 Primera prueba tripulada en espacio profundo.<br><b>Tripulación:</b> Wiseman, Glover, Koch, Hansen.` 
             }
@@ -296,6 +349,12 @@
             pantallaInfo.style.display = "block"; pantallaInfo.style.animation = 'none'; pantallaInfo.offsetHeight; pantallaInfo.style.animation = null; 
             infoTitulo.innerText = baseDeDatos[modoDeseado].tit; infoHistorial.innerHTML = baseDeDatos[modoDeseado].hist; 
             pantallaInfo.scrollTop = 0; actualizarInfoVivo(); 
+            
+            // Ocultar paneles en celular al hacer clic abajo para admirar el fondo
+            if(window.innerWidth <= 900) {
+                document.getElementById('columna-izq').classList.remove('abierto');
+                document.getElementById('columna-der').classList.remove('abierto');
+            }
         }
 
         function actualizarInfoVivo() {
@@ -320,7 +379,7 @@
 
             const escenas = [
                 { obj: 'tierra', txt: "MISIÓN ARTEMIS II\nREGRESO AL ESPACIO PROFUNDO", duracion: 5000 },
-                { obj: 'orion', txt: "CÁPSULA ORION\nLLEVANDO A 4 ASTRONAUTAS", duracion: 5000 },
+                { obj: 'orion', txt: "VEHÍCULO ESPACIAL\nLLEVANDO A 4 ASTRONAUTAS", duracion: 5000 },
                 { obj: 'luna', txt: "DESTINO: LA LUNA\nTRAYECTORIA DE RETORNO LIBRE", duracion: 5000 },
                 { obj: 'sistema', txt: "DURACIÓN: 10 DÍAS\nPASO ANTES DE MARTE", duracion: 6000 }
             ];
@@ -388,8 +447,8 @@
                 let camOffset = new THREE.Vector3();
                 if (modoActual === 'sistema') camOffset.set(-60, 45, 90);
                 else if (modoActual === 'tierra') camOffset.set(4, 2, 4);
-                // Restauramos el offset de cámara de tu modelo pequeño
-                else if (modoActual === 'orion') camOffset.set(-1.5, 0.8, -1.5);
+                // Offset calibrado exacto para la nave Agena gigante
+                else if (modoActual === 'orion') camOffset.set(-3.5, 2.0, -3.5);
                 else if (modoActual === 'luna') camOffset.set(2, 1, 2);
                 camera.position.lerp(targetActual.clone().add(camOffset), 0.02);
             } else { controls.target.copy(targetActual); camera.position.add(delta); }
