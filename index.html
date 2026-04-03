@@ -52,9 +52,26 @@
         .btn-cam.activo { background: rgba(0, 210, 255, 0.1); color: #00d2ff; border: 1px solid #00d2ff; box-shadow: 0 0 20px rgba(0, 210, 255, 0.4); }
         #btn-stream { background: rgba(255, 0, 60, 0.1); color: #ff3366; border: 1px solid #ff3366; }
 
-        /* OVERLAY CINEMÁTICO */
-        #overlay-cinematico { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); width: 80%; text-align: center; z-index: 100; pointer-events: none; opacity: 0; transition: opacity 1s ease; }
-        #texto-tour { font-size: 2.2rem; color: #fff; text-shadow: 0 0 20px #00d2ff, 0 0 10px #00d2ff, 0 5px 10px rgba(0,0,0,0.8); font-weight: bold; letter-spacing: 4px; line-height: 1.4; text-transform: uppercase; }
+        /* === MODO STREAM (DOBLE CAPA) === */
+        #corte-negro {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #000000; z-index: 999; pointer-events: none;
+            opacity: 0; transition: opacity 1s ease;
+        }
+
+        #overlay-cinematico { 
+            position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%); 
+            width: 90%; max-width: 1000px; text-align: center; z-index: 1000; 
+            pointer-events: none; opacity: 0; transition: opacity 1s ease; 
+        }
+        
+        #texto-tour { 
+            font-size: 1.8rem; color: #ffffff; 
+            /* Sombra doble negra muy pesada para asegurar legibilidad sobre planetas claros */
+            text-shadow: 0 0 15px #000, 0 0 30px #000, 0 0 45px #000, 0 2px 5px rgba(0,210,255,0.8); 
+            font-weight: bold; letter-spacing: 3px; line-height: 1.6; 
+            text-transform: uppercase; text-align: center;
+        }
 
         /* === BOTONES MÓVILES === */
         .toggle-movil { display: none; }
@@ -80,7 +97,6 @@
             }
             #btn-toggle-izq { top: 15px; left: 15px; }
             #btn-toggle-der { top: 15px; right: 15px; }
-            
             #btn-modo-libre { top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0, 210, 255, 0.15); box-shadow: 0 0 10px rgba(0,210,255,0.4);}
 
             #hud-contenedor { padding: 0; pointer-events: none; display: block; }
@@ -97,7 +113,6 @@
             
             #columna-izq.abierto, #columna-der.abierto { opacity: 1; transform: translateY(0); pointer-events: auto; touch-action: pan-y; }
 
-            /* LA SOLUCIÓN DEL SCROLL: Agregamos 160px extra debajo del contenido para que suba más allá de la barra de botones */
             .caja-datos { padding-bottom: 160px; margin-bottom: 0; }
             #pantalla-info { display: block !important; padding: 15px 15px 160px 15px; border-radius: 0 0 12px 12px; max-height: none; overflow-y: visible; }
 
@@ -108,7 +123,10 @@
                 padding: 10px; gap: 8px; background: rgba(5, 10, 15, 0.95);
             }
             .btn-cam { padding: 8px 12px; font-size: 0.7rem; }
-            #texto-tour { font-size: 1.5rem; }
+            
+            /* Subtítulos más grandes para leerlos bien en móvil */
+            #texto-tour { font-size: 1.2rem; letter-spacing: 2px;}
+            #overlay-cinematico { bottom: 20%; }
         }
     </style>
 </head>
@@ -120,7 +138,10 @@
 
     <button id="btn-salir-libre" onclick="desactivarModoLibre()">❌ SALIR</button>
 
-    <div id="overlay-cinematico"><div id="texto-tour">Iniciando transmisión...</div></div>
+    <div id="corte-negro"></div>
+    <div id="overlay-cinematico">
+        <div id="texto-tour"></div>
+    </div>
 
     <div id="hud-contenedor">
         <div id="columna-izq">
@@ -184,17 +205,11 @@
             enModoLibre = true;
             const hud = document.getElementById('hud-contenedor');
             const controles = document.getElementById('controles-camara');
-            
             hud.style.opacity = 0; controles.style.opacity = 0;
             document.querySelectorAll('.toggle-movil').forEach(btn => btn.style.display = 'none');
-            
             setTimeout(() => {
-                if(enModoLibre) {
-                    hud.style.display = 'none'; controles.style.display = 'none';
-                    document.getElementById('btn-salir-libre').style.display = 'block';
-                }
+                if(enModoLibre) { hud.style.display = 'none'; controles.style.display = 'none'; document.getElementById('btn-salir-libre').style.display = 'block'; }
             }, 400);
-
             document.getElementById('columna-izq').classList.remove('abierto');
             document.getElementById('columna-der').classList.remove('abierto');
         }
@@ -204,18 +219,13 @@
             document.getElementById('btn-salir-libre').style.display = 'none';
             const hud = document.getElementById('hud-contenedor');
             const controles = document.getElementById('controles-camara');
-            
             hud.style.display = window.innerWidth <= 900 ? 'block' : 'flex';
             controles.style.display = 'flex';
             if(window.innerWidth <= 900) { document.querySelectorAll('.toggle-movil').forEach(btn => btn.style.display = 'block'); }
-
             setTimeout(() => { hud.style.opacity = 1; controles.style.opacity = 1; }, 50);
             activarPantalla(modoActual);
         }
 
-        // ==========================================
-        // MOTOR GRÁFICO 
-        // ==========================================
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x030508, 0.0015);
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.001, 20000); 
@@ -238,12 +248,10 @@
         const luzSolar = new THREE.DirectionalLight(0xffeedd, 4.0); luzSolar.position.copy(posSol); scene.add(luzSolar);
         
         const materialSol = new THREE.MeshBasicMaterial({ color: 0xffffee, fog: false });
-        const solEsfera = new THREE.Mesh(new THREE.SphereGeometry(70, 32, 32), materialSol);
-        solEsfera.position.copy(posSol); scene.add(solEsfera);
+        const solEsfera = new THREE.Mesh(new THREE.SphereGeometry(70, 32, 32), materialSol); solEsfera.position.copy(posSol); scene.add(solEsfera);
 
         const materialHalo = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, fog: false, side: THREE.BackSide });
-        const haloSol = new THREE.Mesh(new THREE.SphereGeometry(120, 32, 32), materialHalo);
-        haloSol.position.copy(posSol); scene.add(haloSol);
+        const haloSol = new THREE.Mesh(new THREE.SphereGeometry(120, 32, 32), materialHalo); haloSol.position.copy(posSol); scene.add(haloSol);
 
         const geoEstrellas = new THREE.BufferGeometry();
         const posEstrellas = new Float32Array(15000 * 3);
@@ -251,7 +259,6 @@
         geoEstrellas.setAttribute('position', new THREE.BufferAttribute(posEstrellas, 3));
         scene.add(new THREE.Points(geoEstrellas, new THREE.PointsMaterial({ color: 0xffffff, size: 0.8, transparent: true, opacity: 0.6 })));
 
-        // TIERRA Y LUNA
         const tierraGrupo = new THREE.Group(); tierraGrupo.rotation.z = 23.5 * Math.PI / 180; scene.add(tierraGrupo);
         const matTierra = new THREE.MeshPhongMaterial({ color: 0xffffff, specular: 0x333333, shininess: 25 });
         const tierra = new THREE.Mesh(new THREE.SphereGeometry(2, 64, 64), matTierra); tierraGrupo.add(tierra);
@@ -273,9 +280,7 @@
         const orbitaLunaMesh = new THREE.Mesh(orbitaLunaGeo, new THREE.MeshBasicMaterial({ color: 0x334455, side: THREE.DoubleSide, transparent: true, opacity: 0.3 }));
         orbitaLunaMesh.rotation.x = Math.PI / 2; scene.add(orbitaLunaMesh);
 
-        // NAVE PROCEDURAL "AGENA"
         const orionGroup = new THREE.Group(); const orionModelo = new THREE.Group(); orionGroup.add(orionModelo); scene.add(orionGroup);
-
         const matCasco = new THREE.MeshStandardMaterial({ color: 0xd0d0d0, roughness: 0.3, metalness: 0.8 });
         const matOro = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.6, metalness: 1.0 }); 
         const matOscuro = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8, metalness: 0.2 });
@@ -293,7 +298,6 @@
             const panel = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.02, 0.3), matPanel); panel.position.x = 0.7; grupoPanel.add(panel);
             grupoPanel.rotation.z = p.rot; orionModelo.add(grupoPanel);
         });
-
         orionModelo.scale.set(0.05, 0.05, 0.05); orionModelo.rotation.y = Math.PI;
 
         let rayosXActivo = false; const materialesOriginales = new Map(); 
@@ -310,31 +314,14 @@
             });
         }
 
-        // ==========================================
-        // BASE DE DATOS ÉPICA Y COMPLETA
-        // ==========================================
         const pantallaInfo = document.getElementById('pantalla-info'); const infoTitulo = document.getElementById('info-titulo'); const infoHistorial = document.getElementById('info-historial'); const infoVivo = document.getElementById('info-vivo');
         let modoActual = 'sistema'; let ultimosDatosAPI = null;
 
         const baseDeDatos = {
-            "sistema": { 
-                tit: "PROGRAMA ARTEMIS", 
-                hist: `El programa Artemis marca el histórico regreso de la humanidad a la Luna, esta vez de forma sostenible.<br><br><b>Misión Artemis II:</b> Es la primera prueba de vuelo tripulada del poderoso cohete SLS (Space Launch System) y la nave Orion. Durante un viaje de aproximadamente 10 días, la misión comprobará que los sistemas vitales de la nave están listos para mantener a los astronautas en misiones prolongadas en el espacio profundo.<br><br><ul><li><b>Objetivo Final:</b> Establecer la base Gateway y preparar el camino tecnológico para las futuras misiones tripuladas al planeta Marte.</li></ul>` 
-            },
-            "tierra": { 
-                tit: "PLANETA TIERRA", 
-                hist: `Nuestro hogar, punto de origen y destino final de la misión Artemis II.<br><br><ul><li><b>Lanzamiento:</b> Programado desde el histórico Pad 39B en el Centro Espacial Kennedy, Florida.</li><br><li><b>Reingreso y Acuatizaje:</b> Tras 10 días en el espacio, la cápsula Orion reingresará a la atmósfera terrestre a una velocidad extrema de 40,000 km/h, alcanzando temperaturas que superan los 2,760 °C en su escudo térmico, para finalmente desplegar sus paracaídas y acuatizar de forma segura en el Océano Pacífico.</li></ul>` 
-            },
-            "luna": { 
-                tit: "LA LUNA", 
-                hist: `Nuestro satélite natural y el campo de prueba principal para la misión.<br><br>A diferencia de misiones posteriores, Artemis II no aterrizará en la superficie lunar. En su lugar, ejecutará una compleja maniobra conocida como <b>Trayectoria de Retorno Libre</b>.<br><br>La gravedad de la Luna actuará como una honda natural, atrapando la nave Orion y lanzándola directamente de regreso hacia la Tierra sin necesidad de encender los motores principales. La tripulación pasará a tan solo unos 10,000 kilómetros de la cara oculta de la Luna, rompiendo récords de distancia humana en el espacio.` 
-            },
-            "orion": { 
-                tit: "VEHÍCULO ESPACIAL ORION", 
-                hist: `
-                <img src="astronutas.jpg" style="width:100%; border-radius:8px; margin-bottom:15px; border: 1px solid rgba(0,210,255,0.3);" alt="Tripulación Artemis II">
-                La nave espacial Orion es el vehículo de exploración de espacio profundo más avanzado jamás construido por la NASA.<br><br><b>Tripulación Histórica de Artemis II:</b><br>• Reid Wiseman (Comandante)<br>• Victor Glover (Piloto)<br>• Christina Koch (Especialista de Misión)<br>• Jeremy Hansen (Especialista de Misión, Agencia Espacial Canadiense)<br><br>Esta tripulación marcará un hito: será el primer viaje tripulado más allá de la órbita terrestre baja desde la misión Apolo 17 en el año 1972.` 
-            }
+            "sistema": { tit: "PROGRAMA ARTEMIS", hist: `Regreso sostenible de la humanidad a la Luna.<br><br><b>Misión Artemis II:</b> Prueba tripulada del cohete SLS y nave Orion.<br><br><ul><li><b>Objetivo Final:</b> Misiones a Marte.</li></ul>` },
+            "tierra": { tit: "PLANETA TIERRA", hist: `Nuestro hogar y destino de Artemis II.<br><br>Reingreso extremo a 40,000 km/h y acuatizaje en el Pacífico.` },
+            "luna": { tit: "LA LUNA", hist: `Campo de prueba lunar.<br><br>Trayectoria de Retorno Libre: uso de gravedad como honda natural para el regreso.` },
+            "orion": { tit: "VEHÍCULO ESPACIAL ORION", hist: `<img src="astronutas.jpg" style="width:100%; border-radius:8px; margin-bottom:15px; border: 1px solid rgba(0,210,255,0.3);" alt="Tripulación"><b>Tripulación:</b> Wiseman, Glover, Koch, Hansen.<br><br>Primer viaje tripulado más allá de la órbita terrestre desde 1972.` }
         };
 
         function activarPantalla(modoDeseado) {
@@ -343,29 +330,95 @@
             document.getElementById(`btn-${modoDeseado}`).classList.add('activo');
             pantallaInfo.style.display = "block"; infoTitulo.innerText = baseDeDatos[modoDeseado].tit; infoHistorial.innerHTML = baseDeDatos[modoDeseado].hist; 
             pantallaInfo.scrollTop = 0; actualizarInfoVivo(); 
-            
             if(window.innerWidth <= 900 && !enModoLibre) { document.getElementById('columna-izq').classList.remove('abierto'); document.getElementById('columna-der').classList.remove('abierto'); }
         }
 
         function actualizarInfoVivo() {
             if (!ultimosDatosAPI) return;
-            if (modoActual === 'sistema') infoVivo.innerHTML = `Fase de vuelo: ${ultimosDatosAPI.fase_mision}`;
-            if (modoActual === 'tierra') infoVivo.innerHTML = `Comunicaciones DSN: Red Enlazada<br>Distancia: ${Math.round(ultimosDatosAPI.distancia_tierra_km).toLocaleString('en-US')} km`;
+            if (modoActual === 'sistema') infoVivo.innerHTML = `Vuelo en curso. Fase: ${ultimosDatosAPI.fase_mision}`;
+            if (modoActual === 'tierra') infoVivo.innerHTML = `DSN: Red Enlazada<br>Distancia: ${Math.round(ultimosDatosAPI.distancia_tierra_km).toLocaleString('en-US')} km`;
             if (modoActual === 'luna') infoVivo.innerHTML = `ETA Lunar (Intersección): ${ultimosDatosAPI.tiempos.eta_luna}`;
             if (modoActual === 'orion') infoVivo.innerHTML = `Rotación Pitch: ${ultimosDatosAPI.rotacion_orion.pitch.toFixed(3)} rad<br>Rotación Yaw: ${ultimosDatosAPI.rotacion_orion.yaw.toFixed(3)} rad<br>Velocidad de crucero: ${Math.round(ultimosDatosAPI.velocidad_kmh).toLocaleString('en-US')} km/h`;
         }
 
+        // ==========================================
+        // LA MAGIA: MODO STREAM CALIBRADO
+        // ==========================================
         let enTour = false;
+
         function iniciarTour() {
-            if(enTour) return; enTour = true; document.getElementById('hud-contenedor').style.opacity = 0; document.getElementById('controles-camara').style.opacity = 0;
-            const overlay = document.getElementById('overlay-cinematico'); const texto = document.getElementById('texto-tour');
-            const escenas = [ { obj: 'tierra', txt: "ARTEMIS II", duracion: 4000 }, { obj: 'orion', txt: "4 ASTRONAUTAS", duracion: 4000 }, { obj: 'luna', txt: "DESTINO: LUNA", duracion: 4000 } ];
-            let tiempoAcumulado = 0;
+            if(enTour) return; 
+            enTour = true; 
+
+            const hud = document.getElementById('hud-contenedor');
+            const controles = document.getElementById('controles-camara');
+            const corteNegro = document.getElementById('corte-negro');
+            const overlay = document.getElementById('overlay-cinematico'); 
+            const texto = document.getElementById('texto-tour');
+
+            // Apagar UI
+            hud.style.opacity = 0; controles.style.opacity = 0;
+            document.querySelectorAll('.toggle-movil').forEach(btn => btn.style.display = 'none');
+            setTimeout(() => { hud.style.display = 'none'; controles.style.display = 'none'; }, 400);
+
+            const escenas = [ 
+                { obj: 'tierra', txt: "DESDE LA TIERRA... HACIA LO DESCONOCIDO.\n\nEL COHETE SLS INICIA EL HISTÓRICO REGRESO HUMANO AL ESPACIO PROFUNDO.", duracion: 12000 }, 
+                { obj: 'orion', txt: "LA NAVE ORION: UN HOGAR LEJOS DE CASA.\n\nCOMPROBANDO SISTEMAS VITALES PARA FUTURAS GENERACIONES DE EXPLORADORES LUNARES.", duracion: 12000 }, 
+                { obj: 'luna', txt: "PRÓXIMA PARADA: LA LUNA.\n\nEJECUTANDO LA COMPLEJA TRAYECTORIA DE RETORNO LIBRE, IMPULSARÁ A LA TRIPULACIÓN DE VUELTA A CASA.", duracion: 12000 },
+                { obj: 'sistema', txt: "ARTEMIS II: EL PUENTE HACIA EL MAÑANA.\n\nPREPARANDO EL CAMINO TECNOLÓGICO PARA QUE LA HUMANIDAD LLEGUE A MARTE.", duracion: 14000 } 
+            ];
+
+            let tiempoTotal = 0;
+
+            // INICIO DEL TOUR: Pantalla negra y texto de carga
+            corteNegro.style.opacity = 1;
+            texto.innerText = "INICIANDO SECUENCIA CINEMÁTICA...";
+            setTimeout(() => { overlay.style.opacity = 1; }, 1000); // Aparece texto de carga
+            
+            tiempoTotal += 3500; // 3.5 segundos de carga
+
             escenas.forEach((escena) => {
-                setTimeout(() => { activarPantalla(escena.obj); overlay.style.opacity = 0; setTimeout(() => { texto.innerText = escena.txt; overlay.style.opacity = 1; }, 800); }, tiempoAcumulado);
-                tiempoAcumulado += escena.duracion;
+                // 1. Ocultar texto viejo y mantener/fundir a negro (Corte)
+                setTimeout(() => {
+                    overlay.style.opacity = 0;
+                    corteNegro.style.opacity = 1;
+                }, tiempoTotal);
+
+                // 2. Cambiar cámara, quitar pantalla negra, poner nuevo texto
+                setTimeout(() => {
+                    activarPantalla(escena.obj);
+                    texto.innerText = escena.txt;
+                    corteNegro.style.opacity = 0; // Vemos el espacio 3D
+                    overlay.style.opacity = 1;    // Vemos el texto (y se queda ahí brillando)
+                }, tiempoTotal + 1500); // 1.5s de corte negro para acomodar la vista
+
+                tiempoTotal += escena.duracion;
             });
-            setTimeout(() => { overlay.style.opacity = 0; document.getElementById('hud-contenedor').style.opacity = 1; document.getElementById('controles-camara').style.opacity = 1; enTour = false; activarPantalla('orion'); }, tiempoAcumulado + 1000);
+
+            // FIN DEL TOUR
+            setTimeout(() => {
+                overlay.style.opacity = 0;
+                corteNegro.style.opacity = 1;
+            }, tiempoTotal);
+
+            setTimeout(() => {
+                texto.innerText = "RESTAURANDO CONTROLES DE MISIÓN...";
+                overlay.style.opacity = 1;
+            }, tiempoTotal + 1000);
+
+            setTimeout(() => {
+                overlay.style.opacity = 0;
+                corteNegro.style.opacity = 0;
+                
+                hud.style.display = window.innerWidth <= 900 ? 'block' : 'flex';
+                controles.style.display = 'flex';
+                if(window.innerWidth <= 900) { document.querySelectorAll('.toggle-movil').forEach(btn => btn.style.display = 'block'); }
+                
+                setTimeout(() => { hud.style.opacity = 1; controles.style.opacity = 1; }, 100);
+
+                enTour = false; 
+                activarPantalla('orion'); 
+            }, tiempoTotal + 4000);
         }
 
         const metEl = document.getElementById('met-valor'), etaEl = document.getElementById('eta-valor'), velEl = document.getElementById('vel-valor'), distEl = document.getElementById('dist-tierra-valor'), faseEl = document.getElementById('fase-valor');
