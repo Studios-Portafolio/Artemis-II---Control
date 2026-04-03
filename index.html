@@ -9,7 +9,9 @@
     <style>
         /* === ESTILOS BASE Y ESCRITORIO === */
         body { margin: 0; overflow: hidden; background-color: #030508; font-family: 'Courier New', Courier, monospace; color: #ffffff; -webkit-tap-highlight-color: transparent;}
-        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* PARCHE TÁCTIL: touch-action: none evita que el navegador intente hacer scroll y le da el control al 3D */
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; touch-action: none; }
         
         #hud-contenedor { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: flex; justify-content: space-between; padding: 30px; box-sizing: border-box; transition: opacity 1s ease; }
         .panel-cristal { background: linear-gradient(135deg, rgba(5, 10, 15, 0.85) 0%, rgba(0, 5, 10, 0.7) 100%); backdrop-filter: blur(20px); border: 1px solid rgba(0, 210, 255, 0.2); border-radius: 12px; box-shadow: 0 10px 40px rgba(0, 210, 255, 0.05); pointer-events: auto; }
@@ -69,7 +71,6 @@
            2. ESTILOS 10/10 PARA MÓVILES (Paneles Deslizantes)
            ========================================== */
         @media (max-width: 900px) {
-            /* Botones tácticos en las esquinas */
             .toggle-movil { 
                 display: block; position: absolute; top: 15px; z-index: 50; 
                 padding: 8px 12px; color: #00d2ff; background: rgba(5,10,15,0.8); 
@@ -80,39 +81,22 @@
             #btn-toggle-izq { left: 15px; }
             #btn-toggle-der { right: 15px; }
 
-            /* Destruimos el contenedor HUD para que no bloquee la pantalla */
             #hud-contenedor { padding: 0; pointer-events: none; display: block; }
             
-            /* Paneles Ocultos y Flotantes */
             #columna-izq, #columna-der {
-                position: absolute;
-                top: 60px;
-                width: 90%;
-                left: 5%;
-                background: rgba(5, 10, 15, 0.95);
-                border-radius: 12px;
+                position: absolute; top: 60px; width: 90%; left: 5%;
+                background: rgba(5, 10, 15, 0.95); border-radius: 12px;
                 box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
-                opacity: 0; /* Invisibles por defecto */
-                transform: translateY(-20px); /* Arriba */
-                pointer-events: none;
-                z-index: 40;
-                max-height: calc(100vh - 180px);
-                overflow-y: auto;
+                opacity: 0; transform: translateY(-20px); pointer-events: none;
+                z-index: 40; max-height: calc(100vh - 180px); overflow-y: auto;
             }
             
-            /* Clase mágica que los desliza a la pantalla */
-            #columna-izq.abierto, #columna-der.abierto {
-                opacity: 1;
-                transform: translateY(0);
-                pointer-events: auto;
-            }
+            #columna-izq.abierto, #columna-der.abierto { opacity: 1; transform: translateY(0); pointer-events: auto; }
 
-            /* Ajustes de contenido interno para que entren bien */
             .caja-datos { margin-bottom: 0; }
             #nasa-tv-container { height: 180px; margin-bottom: 10px; border-radius: 12px 12px 0 0; }
             #pantalla-info { display: block !important; padding: 15px; border-radius: 0 0 12px 12px; }
 
-            /* Barra Inferior Adaptada */
             #controles-camara { width: 95%; flex-wrap: wrap; justify-content: center; bottom: 15px; padding: 10px; gap: 8px; }
             .btn-cam { padding: 8px 12px; font-size: 0.7rem; }
             #texto-tour { font-size: 1.5rem; }
@@ -183,11 +167,9 @@
             const panelSeleccionado = document.getElementById(panelId);
             const estabaAbierto = panelSeleccionado.classList.contains('abierto');
             
-            // Forzamos cerrar ambos siempre para que no se superpongan
             document.getElementById('columna-izq').classList.remove('abierto');
             document.getElementById('columna-der').classList.remove('abierto');
             
-            // Si no estaba abierto, lo abrimos
             if (!estabaAbierto) {
                 panelSeleccionado.classList.add('abierto');
             }
@@ -268,7 +250,7 @@
         orbitaLunaMesh.rotation.x = Math.PI / 2; scene.add(orbitaLunaMesh);
 
         // ==========================================
-        // LA NAVE PROCEDURAL "AGENA" (NUNCA FALLA)
+        // LA NAVE PROCEDURAL "AGENA"
         // ==========================================
         const orionGroup = new THREE.Group(); 
         const orionModelo = new THREE.Group(); 
@@ -304,7 +286,6 @@
             grupoPanel.rotation.z = p.rot; orionModelo.add(grupoPanel);
         });
 
-        // Escala épica 3.5x
         orionModelo.scale.set(3.5, 3.5, 3.5); 
         orionModelo.rotation.y = Math.PI;
 
@@ -350,7 +331,6 @@
             infoTitulo.innerText = baseDeDatos[modoDeseado].tit; infoHistorial.innerHTML = baseDeDatos[modoDeseado].hist; 
             pantallaInfo.scrollTop = 0; actualizarInfoVivo(); 
             
-            // Ocultar paneles en celular al hacer clic abajo para admirar el fondo
             if(window.innerWidth <= 900) {
                 document.getElementById('columna-izq').classList.remove('abierto');
                 document.getElementById('columna-der').classList.remove('abierto');
@@ -422,9 +402,16 @@
         }
         obtenerTelemetria(); setInterval(obtenerTelemetria, 1000);
 
-        // ANIMACIÓN E HÍBRIDO DE CÁMARA
+        // ==========================================
+        // PARCHE TÁCTIL: Sensores móviles explícitos
+        // ==========================================
         let camaraLibre = false; let targetActual = new THREE.Vector3(0, 0, 0);
-        controls.addEventListener('start', () => { if(!enTour) camaraLibre = true; }); renderer.domElement.addEventListener('wheel', () => { if(!enTour) camaraLibre = true; });
+        
+        controls.addEventListener('start', () => { if(!enTour) camaraLibre = true; }); 
+        renderer.domElement.addEventListener('wheel', () => { if(!enTour) camaraLibre = true; }, {passive: true});
+        renderer.domElement.addEventListener('touchstart', () => { if(!enTour) camaraLibre = true; }, {passive: true});
+        renderer.domElement.addEventListener('touchmove', () => { if(!enTour) camaraLibre = true; }, {passive: true});
+
         const qActual = new THREE.Quaternion(), qObjetivo = new THREE.Quaternion();
 
         function animate() {
@@ -447,11 +434,14 @@
                 let camOffset = new THREE.Vector3();
                 if (modoActual === 'sistema') camOffset.set(-60, 45, 90);
                 else if (modoActual === 'tierra') camOffset.set(4, 2, 4);
-                // Offset calibrado exacto para la nave Agena gigante
                 else if (modoActual === 'orion') camOffset.set(-3.5, 2.0, -3.5);
                 else if (modoActual === 'luna') camOffset.set(2, 1, 2);
                 camera.position.lerp(targetActual.clone().add(camOffset), 0.02);
-            } else { controls.target.copy(targetActual); camera.position.add(delta); }
+            } else { 
+                // PARCHE TÁCTIL: Ahora mueves tanto el objetivo como la cámara, permitiendo rotar, hacer zoom y paneo libremente
+                controls.target.add(delta); 
+                camera.position.add(delta); 
+            }
 
             controls.update(); renderer.render(scene, camera);
         }
